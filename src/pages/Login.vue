@@ -63,17 +63,15 @@
 
 <script setup lang="ts">
 import { reactive, ref } from 'vue';
+import { useRouter } from 'vue-router';
 import { UserOutlined, LockOutlined } from '@ant-design/icons-vue';
 import type { Rule } from 'ant-design-vue/es/form';
 import { message } from 'ant-design-vue';
+import { AuthApi, TokenManager, type LoginRequest } from '@/api/auth';
 
-interface FormState {
-  email: string;
-  password: string;
-  rememberMe: boolean;
-}
+const router = useRouter();
 
-const formState = reactive<FormState>({
+const formState = reactive<LoginRequest>({
   email: '',
   password: '',
   rememberMe: false,
@@ -97,26 +95,17 @@ const handleLogin = async () => {
   loading.value = true;
   
   try {
-    // TODO: 调用后端登录 API
-    // const response = await fetch('/api/v1/auth/login', {
-    //   method: 'POST',
-    //   headers: { 'Content-Type': 'application/json' },
-    //   body: JSON.stringify(formState),
-    // });
-    // const result = await response.json();
-    // if (result.code === 0) {
-    //   localStorage.setItem('token', result.data.token);
-    //   message.success('登录成功');
-    //   router.push('/');
-    // }
-
-    // 模拟登录
-    setTimeout(() => {
-      message.success('登录成功');
-      loading.value = false;
-    }, 1000);
-  } catch (error) {
-    message.error('登录失败');
+    // 调用后端登录 API（类型安全！）
+    const result = await AuthApi.login(formState);
+    
+    // 保存 Token
+    TokenManager.setToken(result.data.token);
+    
+    message.success('登录成功');
+    router.push('/');
+  } catch (error: any) {
+    message.error(error.message || '登录失败');
+  } finally {
     loading.value = false;
   }
 };
