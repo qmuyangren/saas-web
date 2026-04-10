@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { TOKEN_KEY, USER_INFO_KEY, MENU_LIST_KEY } from '@/constants'
 import { Persistent } from '@/utils/cache'
-import { loginApi, getUserInfoApi, logoutApi } from '@/api'
+import { loginApi, getUserInfoApi, logoutApi, refreshTokenApi } from '@/api'
 import type { UserInfo, LoginParams } from '@/types'
 
 export interface UserState {
@@ -122,6 +122,18 @@ export const useUserStore = defineStore('user', {
         console.error('Logout failed:', error)
       }
       this.resetState()
+    },
+
+    async refreshToken(refreshToken: string): Promise<UserInfo | null> {
+      try {
+        const res = await refreshTokenApi(refreshToken)
+        const { token } = res.data
+        this.setToken(token)
+        return await this.afterLoginAction()
+      } catch (error) {
+        console.error('Refresh token failed:', error)
+        return null
+      }
     },
 
     init() {

@@ -53,6 +53,10 @@
         </a-form-item>
 
         <a-form-item>
+          <a-checkbox v-model:checked="rememberMe">记住我（7 天内自动登录）</a-checkbox>
+        </a-form-item>
+
+        <a-form-item>
           <a-button
             type="primary"
             html-type="submit"
@@ -87,10 +91,38 @@ const loading = ref(false)
 const captchaRef = ref()
 const showCaptcha = ref(false)
 const loginFailCount = ref(0)
+const rememberMe = ref(false)
 
 const form = reactive({
   username: 'admin',
   password: '123456',
+})
+
+const REMEMBER_ME_KEY = 'remember_me_user'
+
+// 页面加载时检查是否有记住我的用户
+onMounted(() => {
+  const rememberedUser = localStorage.getItem(REMEMBER_ME_KEY)
+  if (rememberedUser) {
+    try {
+      const user = JSON.parse(rememberedUser)
+      form.username = user.username
+      rememberMe.value = true
+      // 自动登录
+      autoLogin(user.refreshToken)
+    } catch (e) {
+      localStorage.removeItem(REMEMBER_ME_KEY)
+    }
+  }
+  
+  // 从 localStorage 读取失败次数
+  const count = localStorage.getItem(FAIL_COUNT_KEY)
+  if (count) {
+    loginFailCount.value = parseInt(count)
+    if (loginFailCount.value >= 3) {
+      showCaptcha.value = true
+    }
+  }
 })
 
 const rules = {
@@ -129,6 +161,18 @@ const handleLogin = async () => {
       loginFailCount.value = 0
       showCaptcha.value = false
       captchaVerified.value = false
+      
+      // 处理记住我
+      if (rememberMe.value && userInfo.refreshToken) {
+        localStorage.setItem(REMEMBER_ME_KEY, JSON.stringify({
+          username: form.username,
+          refreshToken: userInfo.refreshToken,
+          expiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000 // 7 天
+        }))
+      } else {
+        localStorage.removeItem(REMEMBER_ME_KEY)
+      }
+      
       const redirect = route.query.redirect as string
       router.push(redirect || '/')
     } else {
@@ -136,6 +180,23 @@ const handleLogin = async () => {
     }
   } catch (e: any) {
     handleLoginFailure()
+  } finally {
+    loading.value = false
+  }
+}
+
+// 自动登录
+const autoLogin = async (refreshToken: string) => {
+  loading.value = true
+  try {
+    const userInfo = await userStore.refreshToken(refreshToken)
+    if (userInfo) {
+      message.success('自动登录成功')
+      router.push('/')
+    }
+  } catch (e: any) {
+    localStorage.removeItem(REMEMBER_ME_KEY)
+    message.error('自动登录失败，请重新登录')
   } finally {
     loading.value = false
   }
