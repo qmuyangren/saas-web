@@ -39,6 +39,19 @@
           </a-input-password>
         </a-form-item>
 
+        <!-- 验证码：失败超过 3 次时显示 -->
+        <a-form-item
+          v-if="showCaptcha"
+          label="验证码"
+          name="captcha"
+          :rules="[{ required: true, message: '请输入验证码' }]"
+        >
+          <CaptchaMath
+            ref="captchaRef"
+            :on-success="handleCaptchaSuccess"
+          />
+        </a-form-item>
+
         <a-form-item>
           <a-button
             type="primary"
@@ -60,16 +73,20 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
+import { ref, reactive, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { message } from 'ant-design-vue'
 import { UserOutlined, LockOutlined } from '@ant-design/icons-vue'
 import { useUserStore } from '@/store/modules/user'
+import CaptchaMath from '@/components/common/CaptchaMath/index.vue'
 
 const router = useRouter()
 const route = useRoute()
 const userStore = useUserStore()
 const loading = ref(false)
+const captchaRef = ref()
+const showCaptcha = ref(false)
+const loginFailCount = ref(0)
 
 const form = reactive({
   username: 'admin',
@@ -81,22 +98,68 @@ const rules = {
   password: [{ required: true, message: '请输入密码' }],
 }
 
+// 登录失败次数管理
+const FAIL_COUNT_KEY = 'login_fail_count'
+
+onMounted(() => {
+  // 从 localStorage 读取失败次数
+  const count = localStorage.getItem(FAIL_COUNT_KEY)
+  if (count) {
+    loginFailCount.value = parseInt(count)
+    if (loginFailCount.value >= 3) {
+      showCaptcha.value = true
+    }
+  }
+})
+
 const handleLogin = async () => {
+  // 如果需要验证码但还没验证
+  if (showCaptcha.value && !captchaVerified.value) {
+    message.warning('请先完成验证码')
+    return
+  }
+  
   loading.value = true
   try {
     const userInfo = await userStore.login(form)
     if (userInfo) {
       message.success('登录成功')
+      // 登录成功，重置失败次数
+      localStorage.removeItem(FAIL_COUNT_KEY)
+      loginFailCount.value = 0
+      showCaptcha.value = false
+      captchaVerified.value = false
       const redirect = route.query.redirect as string
       router.push(redirect || '/')
     } else {
-      message.error('登录失败')
+      handleLoginFailure()
     }
   } catch (e: any) {
-    message.error(e.message || '登录失败')
+    handleLoginFailure()
   } finally {
     loading.value = false
   }
+}
+
+const handleLoginFailure = () => {
+  // 增加失败次数
+  loginFailCount.value++
+  localStorage.setItem(FAIL_COUNT_KEY, loginFailCount.value.toString())
+  
+  // 超过 3 次显示验证码
+  if (loginFailCount.value >= 3) {
+    showCaptcha.value = true
+    message.warning('登录失败次数过多，请输入验证码')
+  } else {
+    message.error('登录失败')
+  }
+}
+
+const captchaVerified = ref(false)
+
+const handleCaptchaSuccess = () => {
+  captchaVerified.value = true
+  message.success('验证成功，请登录')
 }
 
 const handleFinishFailed = ({ errorFields }: any) => {
