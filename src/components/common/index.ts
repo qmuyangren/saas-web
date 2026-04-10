@@ -1,0 +1,6 @@
+export { default as AppButton } from './AppButton/index.vue'
+export { default as AppInput } from './AppInput/index.vue'
+export { default as AppModal } from './AppModal/index.vue'
+export { default as AppTable } from './AppTable/index.vue'
+export { default as AppCard } from './AppCard/index.vue'
+export { default as AppPagination } from './AppPagination/index.vue'
