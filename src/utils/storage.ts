@@ -1,3 +1,25 @@
+import { encryptAES, decryptAES } from './crypto'
+
+const TOKEN_KEY = 'saas_token'
+
+/**
+ * Token 存储（AES 加密）
+ */
+export function setToken(token: string) {
+  const encrypted = encryptAES(token)
+  localStorage.setItem(TOKEN_KEY, encrypted)
+}
+
+export function getToken(): string | null {
+  const encrypted = localStorage.getItem(TOKEN_KEY)
+  if (!encrypted) return null
+  return decryptAES(encrypted)
+}
+
+export function removeToken() {
+  localStorage.removeItem(TOKEN_KEY)
+}
+
 export const storage = {
   get<T = any>(key: string, defaultValue?: T): T | null {
     const item = localStorage.getItem(key)
